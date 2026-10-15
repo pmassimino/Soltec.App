@@ -150,3 +150,52 @@ export interface Liquidacion {
   deducciones: ConceptoLiquidacion[];
   retenciones: ConceptoLiquidacion[];
 }
+
+// Certificado de depósito (GET /api/Certificados/{idCuenta}?idCosecha=&idSucursal=)
+export interface AnalisisCertificado {
+  nombre: string;
+  valor: number;
+  bonificacion: number;
+  rebaja: number;
+}
+
+export interface RomaneoCertificado {
+  cartaPorte: string;
+  fecha: Date;
+  pesoBruto: number;
+  porHumedad: number;
+  mermaHumedad: number;
+  mermaZaranda: number;
+}
+
+export interface Certificado {
+  idTransaccion: string;
+  numero: string;
+  coe: string;
+  fecha: Date;
+  tipo: string;
+  grado: number;
+  factor: number;
+  proteina: number;
+  pesoBruto: number;
+  pesoNeto: number;
+  mermas: { concepto: string; kilos: number }[];
+  gastos: { concepto: string; importe: number }[];
+  total: number;
+  analisis: AnalisisCertificado[];
+  romaneos: RomaneoCertificado[];
+}
+
+// Boleto de compraventa (GET /api/Boletos/{idCuenta}?idCosecha=&idSucursal=)
+export interface Boleto {
+  idTransaccion: string;
+  numero: string;
+  fecha: Date;
+  fechaVencimiento: Date;
+  estado: string;
+  aFijar: boolean;
+  pendienteFijar: number;
+  pesoNeto: number;
+  precio: number;
+  observaciones: string;
+}

@@ -2,7 +2,7 @@
 import { useMemo } from 'react';
 import { useAsync } from './useAsync';
 import { CtaCteCerealService } from '../services/CtaCteCerealService';
-import { Entrada, Liquidacion, MovimientoCereal } from '../services/models';
+import { Boleto, Certificado, Entrada, Liquidacion, MovimientoCereal } from '../services/models';
 
 export function useMovimientosCereal(
   idCuenta: string | undefined,
@@ -42,6 +42,34 @@ export function useLiquidacionesCereal(
 
   return useAsync<Liquidacion[]>(
     idCuenta && idCosecha ? () => service.liquidaciones(idCuenta, idCosecha, idSucursal || undefined) : null,
+    [idCuenta, idCosecha, idSucursal, refreshKey]
+  );
+}
+
+export function useCertificadosCereal(
+  idCuenta: string | undefined,
+  idCosecha: string | undefined,
+  idSucursal: string | undefined,
+  refreshKey = 0
+) {
+  const service = useMemo(() => new CtaCteCerealService(), []);
+
+  return useAsync<Certificado[]>(
+    idCuenta && idCosecha ? () => service.certificados(idCuenta, idCosecha, idSucursal || undefined) : null,
+    [idCuenta, idCosecha, idSucursal, refreshKey]
+  );
+}
+
+export function useBoletosCereal(
+  idCuenta: string | undefined,
+  idCosecha: string | undefined,
+  idSucursal: string | undefined,
+  refreshKey = 0
+) {
+  const service = useMemo(() => new CtaCteCerealService(), []);
+
+  return useAsync<Boleto[]>(
+    idCuenta && idCosecha ? () => service.boletos(idCuenta, idCosecha, idSucursal || undefined) : null,
     [idCuenta, idCosecha, idSucursal, refreshKey]
   );
 }

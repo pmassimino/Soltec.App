@@ -1,6 +1,6 @@
 // services/CtaCteCerealService.ts
 import { BaseService } from './BaseService';
-import { ConceptoLiquidacion, Entrada, Liquidacion, MovimientoCereal } from './models';
+import { Boleto, Certificado, ConceptoLiquidacion, Entrada, Liquidacion, MovimientoCereal } from './models';
 
 // El backend serializa clases WCF: aceptamos camelCase y PascalCase por las dudas
 const pick = (raw: any, key: string) => raw?.[key] ?? raw?.[key.charAt(0).toUpperCase() + key.slice(1)];
@@ -71,6 +71,65 @@ const toLiquidacion = (raw: any): Liquidacion => ({
   retenciones: ((pick(raw, 'retenciones') as any[]) ?? []).map(toConcepto).filter((c) => c.importe !== 0),
 });
 
+const toCertificado = (raw: any): Certificado => ({
+  idTransaccion: texto(raw, 'id_Transaccion'),
+  numero: texto(raw, 'numero'),
+  coe: texto(raw, 'coe'),
+  fecha: new Date(pick(raw, 'fecha')),
+  tipo: texto(raw, 'tipo'),
+  grado: numero(raw, 'grado'),
+  factor: numero(raw, 'factor'),
+  proteina: numero(raw, 'contProteico'),
+  pesoBruto: numero(raw, 'pesoBruto'),
+  pesoNeto: numero(raw, 'pesoNeto'),
+  mermas: [
+    { concepto: 'Secado', kilos: numero(raw, 'mermaSecado') },
+    { concepto: 'Zarandeo', kilos: numero(raw, 'mermaZaranda') },
+    { concepto: 'Volátil', kilos: numero(raw, 'mermaVolatil') },
+    { concepto: 'Calidad', kilos: numero(raw, 'mermaCalidad') },
+  ].filter((m) => m.kilos !== 0),
+  gastos: [
+    { concepto: 'Secado', importe: numero(raw, 'importeSecado') },
+    { concepto: 'Zarandeo', importe: numero(raw, 'importeZaranda') },
+    { concepto: 'Acarreo', importe: numero(raw, 'importeAcarreo') },
+    { concepto: 'Flete', importe: numero(raw, 'importeFlete') },
+    { concepto: 'Fumigación', importe: numero(raw, 'importeFumigada') },
+    { concepto: 'Gastos generales', importe: numero(raw, 'importeGG') },
+    { concepto: 'Análisis', importe: numero(raw, 'importeAnalisis') },
+    { concepto: 'Sellado', importe: numero(raw, 'importeSellado') },
+    { concepto: 'Otros', importe: numero(raw, 'importeOtros') },
+    { concepto: 'IVA', importe: numero(raw, 'importeIva') },
+  ].filter((g) => g.importe !== 0),
+  total: numero(raw, 'total'),
+  analisis: ((pick(raw, 'detalleAnalisis') as any[]) ?? []).map((a) => ({
+    nombre: texto(a, 'nombre'),
+    valor: numero(a, 'valor'),
+    bonificacion: numero(a, 'bonificacion'),
+    rebaja: numero(a, 'rebaja'),
+  })),
+  romaneos: ((pick(raw, 'detalleRomaneo') as any[]) ?? []).map((r) => ({
+    cartaPorte: texto(r, 'numeroCPorte'),
+    fecha: new Date(pick(r, 'fecha')),
+    pesoBruto: numero(r, 'pesoBruto'),
+    porHumedad: numero(r, 'porHumedad'),
+    mermaHumedad: numero(r, 'mermaHumedad'),
+    mermaZaranda: numero(r, 'mermaZaranda'),
+  })),
+});
+
+const toBoleto = (raw: any): Boleto => ({
+  idTransaccion: texto(raw, 'id_Transaccion'),
+  numero: texto(raw, 'numero'),
+  fecha: new Date(pick(raw, 'fecha')),
+  fechaVencimiento: new Date(pick(raw, 'fechaVencimiento')),
+  estado: texto(raw, 'estado'),
+  aFijar: !!pick(raw, 'aFijar'),
+  pendienteFijar: numero(raw, 'pendienteFijar'),
+  pesoNeto: numero(raw, 'pesoNeto'),
+  precio: numero(raw, 'precio'),
+  observaciones: texto(raw, 'obs'),
+});
+
 export class CtaCteCerealService extends BaseService {
   /** Movimientos en kilos de una cosecha. El backend trae por defecto los últimos 10 años. */
   async movimientos(idCuenta: string, idCosecha: string, idSucursal = '001'): Promise<MovimientoCereal[]> {
@@ -100,6 +159,28 @@ export class CtaCteCerealService extends BaseService {
       const query = `idCosecha=${encodeURIComponent(idCosecha)}&idSucursal=${encodeURIComponent(idSucursal)}`;
       const response: any[] = await this.fetchAPI(`/api/Liquidaciones/${encodeURIComponent(idCuenta)}?${query}`);
       return (response ?? []).map(toLiquidacion);
+    } catch (error) {
+      throw new Error(`CtaCteCerealService Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
+  }
+
+  /** Certificados de depósito de una cosecha, con análisis, mermas, gastos y entradas incluidas. */
+  async certificados(idCuenta: string, idCosecha: string, idSucursal = '001'): Promise<Certificado[]> {
+    try {
+      const query = `idCosecha=${encodeURIComponent(idCosecha)}&idSucursal=${encodeURIComponent(idSucursal)}`;
+      const response: any[] = await this.fetchAPI(`/api/Certificados/${encodeURIComponent(idCuenta)}?${query}`);
+      return (response ?? []).map(toCertificado);
+    } catch (error) {
+      throw new Error(`CtaCteCerealService Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
+  }
+
+  /** Boletos de compraventa de una cosecha. */
+  async boletos(idCuenta: string, idCosecha: string, idSucursal = '001'): Promise<Boleto[]> {
+    try {
+      const query = `idCosecha=${encodeURIComponent(idCosecha)}&idSucursal=${encodeURIComponent(idSucursal)}`;
+      const response: any[] = await this.fetchAPI(`/api/Boletos/${encodeURIComponent(idCuenta)}?${query}`);
+      return (response ?? []).map(toBoleto);
     } catch (error) {
       throw new Error(`CtaCteCerealService Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
