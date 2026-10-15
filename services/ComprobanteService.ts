@@ -36,11 +36,7 @@ export interface PdfDescargado {
 }
 
 export class ComprobanteService extends BaseService {
-  /**
-   * Descarga el PDF del comprobante (GET /api/comprobante/{Tipo}Pdf/{idTransaccion}?idCuenta=).
-   * En el teléfono lo guarda en caché y lo devuelve para mostrarlo en el visor;
-   * en web lo abre directamente en una pestaña nueva y devuelve null.
-   */
+  /** Descarga el PDF del comprobante (GET /api/comprobante/{Tipo}Pdf/{idTransaccion}?idCuenta=). */
   async descargarPdf(
     idTransaccion: string,
     tipo: string,
@@ -50,10 +46,34 @@ export class ComprobanteService extends BaseService {
     const comprobante = tipoComprobante(idTransaccion, tipo);
     if (!comprobante) throw new Error('Este movimiento no tiene un comprobante para descargar.');
 
-    const token = await this.getToken();
     const url =
       `${this.baseURL}/api/comprobante/${comprobante.endpoint}/${encodeURIComponent(idTransaccion)}` +
       `?idCuenta=${encodeURIComponent(idCuenta)}`;
+    return this.descargar(url, nombre, `${comprobante.nombre} ${nombre}`.trim());
+  }
+
+  /**
+   * Descarga el resumen de cuenta corriente en PDF (GET /api/CtaCte/{idCuenta}/PDF?idSubdiario=),
+   * por defecto con los movimientos de los últimos 60 días.
+   */
+  async descargarResumenCtaCte(
+    idCuenta: string,
+    idSubdiario: string,
+    idDivisa: number,
+    nombreSubdiario: string
+  ): Promise<PdfDescargado | null> {
+    const url =
+      `${this.baseURL}/api/CtaCte/${encodeURIComponent(idCuenta)}/PDF` +
+      `?idSubdiario=${encodeURIComponent(idSubdiario)}&idDivisa=${idDivisa}`;
+    return this.descargar(url, `resumen-${idCuenta}-${idSubdiario}`, `Resumen ${nombreSubdiario}`.trim());
+  }
+
+  /**
+   * En el teléfono guarda el PDF en caché y lo devuelve para mostrarlo en el visor;
+   * en web lo abre directamente en una pestaña nueva y devuelve null.
+   */
+  private async descargar(url: string, nombre: string, titulo: string): Promise<PdfDescargado | null> {
+    const token = await this.getToken();
     const headers = { Authorization: `Bearer ${token}` };
 
     if (Platform.OS === 'web') {
@@ -78,7 +98,7 @@ export class ComprobanteService extends BaseService {
     return {
       uri: archivo.uri,
       base64: await archivo.base64(),
-      titulo: `${comprobante.nombre} ${nombre}`.trim(),
+      titulo,
     };
   }
 

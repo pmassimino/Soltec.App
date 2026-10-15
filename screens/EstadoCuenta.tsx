@@ -1,8 +1,10 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
   Text,
+  Alert,
+  Platform,
   ScrollView,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -18,6 +20,8 @@ import { PendingDocuments } from '../components/common/PendingDocuments';
 import { Card, EmptyState, HeaderTail, IconBadge, Section } from '../components/ui';
 import { formatFecha, formatKg } from '../utils/formatters';
 import { useCuenta } from '../hooks/CuentaHook';
+import { ComprobanteService, PdfDescargado } from '../services/ComprobanteService';
+import { PdfViewerModal } from '../components/common/PdfViewerModal';
 
 export const EstadoCuentaContent: React.FC = () => {
   const { cuentaSeleccionada } = useSujetoSeleccionado();
@@ -33,6 +37,43 @@ export const EstadoCuentaContent: React.FC = () => {
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [hiddenMap, setHiddenMap] = useState<Record<string, boolean>>({});
+  const [descargandoResumen, setDescargandoResumen] = useState(false);
+  const [pdfVisible, setPdfVisible] = useState<PdfDescargado | null>(null);
+  const comprobanteService = useMemo(() => new ComprobanteService(), []);
+
+  const mostrarError = (titulo: string, err: unknown, fallback: string) => {
+    const msg = err instanceof Error ? err.message : fallback;
+    if (Platform.OS === 'web') window.alert(msg);
+    else Alert.alert(titulo, msg);
+  };
+
+  // Resumen de cta. cte. del subdiario que está visible en el carrusel
+  const descargarResumen = async () => {
+    const subdiario = cuentas[Math.min(activeIndex, cuentas.length - 1)];
+    if (!cuentaSeleccionada || !subdiario || descargandoResumen) return;
+    setDescargandoResumen(true);
+    try {
+      const pdf = await comprobanteService.descargarResumenCtaCte(
+        cuentaSeleccionada.idCuenta,
+        subdiario.idSubdiario,
+        subdiario.idDivisa,
+        subdiario.nombre
+      );
+      if (pdf) setPdfVisible(pdf);
+    } catch (err) {
+      mostrarError('Resumen', err, 'No pudimos descargar el resumen.');
+    } finally {
+      setDescargandoResumen(false);
+    }
+  };
+
+  const compartirPdf = async (pdf: PdfDescargado) => {
+    try {
+      await comprobanteService.compartirPdf(pdf);
+    } catch (err) {
+      mostrarError('Compartir', err, 'No se pudo compartir el resumen.');
+    }
+  };
   const scrollRef = useRef<ScrollView>(null);
 
   // Volver al primer subdiario/tarjeta cuando el usuario cambie de sujeto
@@ -46,99 +87,104 @@ export const EstadoCuentaContent: React.FC = () => {
   const toggleHidden = (id: string) =>
     setHiddenMap((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  const onCardsScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+  // Se calcula en onScroll (no en onMomentumScrollEnd) porque este último no se dispara en web
+  const onCardsScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const index = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + CARD_GAP));
-    setActiveIndex(index);
+    setActiveIndex((prev) => (prev === index ? prev : index));
   };
 
   const cosechas = data?.cosechas ?? [];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <HeaderTail />
-      {/* Carrusel de subdiarios, flotando sobre el header */}
-      <View style={styles.carouselSection}>
-        {loadingCuenta ? (
-          <AccountCardSkeleton />
-        ) : errorCuenta ? (
-          <View style={styles.inset}>
-            <EmptyState icon="alert-circle-outline" tone="error" title="No pudimos cargar el saldo" message={errorCuenta} />
-          </View>
-        ) : cuentas.length > 0 ? (
-          <>
-            <ScrollView
-              ref={scrollRef}
-              horizontal
-              snapToInterval={CARD_WIDTH + CARD_GAP}
-              decelerationRate="fast"
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={onCardsScrollEnd}
-              contentContainerStyle={styles.carouselContent}
-            >
-              {cuentas.map((cuenta) => (
-                <AccountCard
-                  key={cuenta.idSubdiario}
-                  cuenta={cuenta}
-                  isHidden={!!hiddenMap[cuenta.idSubdiario]}
-                  onToggleHide={toggleHidden}
-                  onVerMovimientos={(idSubdiario) => navigation.navigate('movimientos', { idSubdiario })}
-                />
-              ))}
-            </ScrollView>
-            {cuentas.length > 1 && (
-              <View style={styles.dots}>
-                {cuentas.map((c, i) => (
-                  <View key={c.idSubdiario} style={[styles.dot, i === activeIndex && styles.dotActive]} />
-                ))}
-              </View>
-            )}
-          </>
-        ) : (
-          <View style={styles.inset}>
-            <EmptyState icon="wallet-outline" title="Sin cuentas corrientes" message="Todavía no hay subdiarios para esta cuenta." />
-          </View>
-        )}
-      </View>
-
-      {/* Accesos rápidos */}
-      <QuickActions />
-
-      {/* Cosechas */}
-      <Section title="Cosechas" badge={cosechas.length || undefined} actionLabel={cosechas.length ? 'Ver todas' : undefined}>
-        {cosechas.length > 0 ? (
-          <Card style={styles.listCard}>
-            {cosechas.map((cosecha, index) => (
-              <View
-                key={cosecha.id || cosecha.nombre || index}
-                style={[styles.listRow, index === cosechas.length - 1 && styles.listRowLast]}
+    <>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <HeaderTail />
+        {/* Carrusel de subdiarios, flotando sobre el header */}
+        <View style={styles.carouselSection}>
+          {loadingCuenta ? (
+            <AccountCardSkeleton />
+          ) : errorCuenta ? (
+            <View style={styles.inset}>
+              <EmptyState icon="alert-circle-outline" tone="error" title="No pudimos cargar el saldo" message={errorCuenta} />
+            </View>
+          ) : cuentas.length > 0 ? (
+            <>
+              <ScrollView
+                ref={scrollRef}
+                horizontal
+                snapToInterval={CARD_WIDTH + CARD_GAP}
+                decelerationRate="fast"
+                showsHorizontalScrollIndicator={false}
+                onScroll={onCardsScroll}
+                scrollEventThrottle={16}
+                contentContainerStyle={styles.carouselContent}
               >
-                <IconBadge name="leaf-outline" color={COLORS.green} bg={COLORS.greenSoft} size={40} />
-                <View style={styles.listRowText}>
-                  <Text style={TYPO.bodyStrong} numberOfLines={1}>{cosecha.nombre || '—'}</Text>
-                  <Text style={TYPO.caption}>Saldo en planta</Text>
+                {cuentas.map((cuenta) => (
+                  <AccountCard
+                    key={cuenta.idSubdiario}
+                    cuenta={cuenta}
+                    isHidden={!!hiddenMap[cuenta.idSubdiario]}
+                    onToggleHide={toggleHidden}
+                    onVerMovimientos={(idSubdiario) => navigation.navigate('movimientos', { idSubdiario })}
+                  />
+                ))}
+              </ScrollView>
+              {cuentas.length > 1 && (
+                <View style={styles.dots}>
+                  {cuentas.map((c, i) => (
+                    <View key={c.idSubdiario} style={[styles.dot, i === activeIndex && styles.dotActive]} />
+                  ))}
                 </View>
-                <Text style={[styles.listRowValue, cosecha.saldo < 0 && { color: COLORS.red }]}>
-                  {formatKg(cosecha.saldo)}
-                </Text>
-              </View>
-            ))}
-          </Card>
-        ) : (
-          <EmptyState icon="leaf-outline" title="Sin cosechas" message="No hay cosechas registradas para esta cuenta." />
-        )}
-      </Section>
+              )}
+            </>
+          ) : (
+            <View style={styles.inset}>
+              <EmptyState icon="wallet-outline" title="Sin cuentas corrientes" message="Todavía no hay subdiarios para esta cuenta." />
+            </View>
+          )}
+        </View>
 
-      {/* Documentos pendientes */}
-      <PendingDocuments
-        remitosPendientes={data?.remitos?.pendiente ?? 0}
-        facturasPendientes={data?.facturas?.pendiente ?? 0}
-      />
+        {/* Accesos rápidos */}
+        <QuickActions onResumen={descargarResumen} resumenLoading={descargandoResumen} />
 
-      <View style={styles.footer}>
-        <Ionicons name="sync-outline" size={12} color={COLORS.textMuted} />
-        <Text style={styles.footerText}>Actualizado el {formatFecha(new Date())}</Text>
-      </View>
-    </ScrollView>
+        {/* Cosechas */}
+        <Section title="Cosechas" badge={cosechas.length || undefined} actionLabel={cosechas.length ? 'Ver todas' : undefined}>
+          {cosechas.length > 0 ? (
+            <Card style={styles.listCard}>
+              {cosechas.map((cosecha, index) => (
+                <View
+                  key={cosecha.id || cosecha.nombre || index}
+                  style={[styles.listRow, index === cosechas.length - 1 && styles.listRowLast]}
+                >
+                  <IconBadge name="leaf-outline" color={COLORS.green} bg={COLORS.greenSoft} size={40} />
+                  <View style={styles.listRowText}>
+                    <Text style={TYPO.bodyStrong} numberOfLines={1}>{cosecha.nombre || '—'}</Text>
+                    <Text style={TYPO.caption}>Saldo en planta</Text>
+                  </View>
+                  <Text style={[styles.listRowValue, cosecha.saldo < 0 && { color: COLORS.red }]}>
+                    {formatKg(cosecha.saldo)}
+                  </Text>
+                </View>
+              ))}
+            </Card>
+          ) : (
+            <EmptyState icon="leaf-outline" title="Sin cosechas" message="No hay cosechas registradas para esta cuenta." />
+          )}
+        </Section>
+
+        {/* Documentos pendientes */}
+        <PendingDocuments
+          remitosPendientes={data?.remitos?.pendiente ?? 0}
+          facturasPendientes={data?.facturas?.pendiente ?? 0}
+        />
+
+        <View style={styles.footer}>
+          <Ionicons name="sync-outline" size={12} color={COLORS.textMuted} />
+          <Text style={styles.footerText}>Actualizado el {formatFecha(new Date())}</Text>
+        </View>
+      </ScrollView>
+      <PdfViewerModal pdf={pdfVisible} onClose={() => setPdfVisible(null)} onShare={compartirPdf} />
+    </>
   );
 };
 

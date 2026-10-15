@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, RADIUS, SPACING } from '../../constants/theme';
 import { Card, IconName } from '../ui';
@@ -9,27 +9,41 @@ interface QuickActionProps {
   label: string;
   color: string;
   bg: string;
+  loading?: boolean;
   onPress?: () => void;
 }
 
-export const QuickActionItem: React.FC<QuickActionProps> = ({ icon, label, color, bg, onPress }) => (
+export const QuickActionItem: React.FC<QuickActionProps> = ({ icon, label, color, bg, loading, onPress }) => (
   <Pressable
     style={({ pressed }) => [styles.item, pressed && { opacity: 0.6 }]}
     onPress={onPress}
+    disabled={loading}
   >
     <View style={[styles.circle, { backgroundColor: bg }]}>
-      <Ionicons name={icon} size={22} color={color} />
+      {loading ? <ActivityIndicator color={color} /> : <Ionicons name={icon} size={22} color={color} />}
     </View>
     <Text style={styles.label}>{label}</Text>
   </Pressable>
 );
 
-export const QuickActions: React.FC = () => (
+interface QuickActionsProps {
+  onResumen?: () => void;
+  resumenLoading?: boolean;
+}
+
+export const QuickActions: React.FC<QuickActionsProps> = ({ onResumen, resumenLoading }) => (
   <Card style={styles.row}>
     <QuickActionItem icon="leaf-outline" label="Cosechas" color={COLORS.green} bg={COLORS.greenSoft} />
     <QuickActionItem icon="cube-outline" label="Remitos" color={COLORS.amber} bg={COLORS.amberSoft} />
     <QuickActionItem icon="document-text-outline" label="Facturas" color={COLORS.blue} bg={COLORS.blueSoft} />
-    <QuickActionItem icon="download-outline" label="Resumen" color={COLORS.navy} bg={COLORS.bg} />
+    <QuickActionItem
+      icon="download-outline"
+      label="Resumen"
+      color={COLORS.navy}
+      bg={COLORS.bg}
+      loading={resumenLoading}
+      onPress={onResumen}
+    />
   </Card>
 );
 
