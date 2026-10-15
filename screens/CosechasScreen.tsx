@@ -28,6 +28,7 @@ import { tipoComprobante } from '../services/ComprobanteService';
 import { COLORS, RADIUS, SHADOW, SPACING, TYPO } from '../constants/theme';
 import { Card, Chip, EmptyState, HeaderTail, IconBadge, IconName, Skeleton } from '../components/ui';
 import { formatKg, formatMoney } from '../utils/formatters';
+import { agruparPorCereal } from '../utils/cosechas';
 
 export type CosechasParams = { idCosecha?: string; idSucursal?: string } | undefined;
 
@@ -895,6 +896,7 @@ export const CosechasScreen: React.FC = () => {
   const { cuentaSeleccionada } = useSujetoSeleccionado();
   const { data: resumen, loading: loadingResumen } = useCuenta(cuentaSeleccionada?.idCuenta);
   const cosechas = resumen?.cosechas ?? [];
+  const grupos = useMemo(() => agruparPorCereal(cosechas), [cosechas]);
 
   const [seleccion, setSeleccion] = useState<string | undefined>(
     route.params?.idCosecha ? claveCosecha(route.params.idCosecha, route.params.idSucursal) : undefined
@@ -924,13 +926,17 @@ export const CosechasScreen: React.FC = () => {
 
   // Si la cosecha elegida no existe en la cuenta actual, tomar la primera
   useEffect(() => {
-    if (cosechas.length && !cosechas.some((c) => claveCosecha(c.idCosecha, c.idSucursal) === seleccion)) {
-      setSeleccion(claveCosecha(cosechas[0].idCosecha, cosechas[0].idSucursal));
+    if (grupos.length && !cosechas.some((c) => claveCosecha(c.idCosecha, c.idSucursal) === seleccion)) {
+      const primera = grupos[0].cosechas[0];
+      setSeleccion(claveCosecha(primera.idCosecha, primera.idSucursal));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cosechas]);
+  }, [grupos]);
 
   const cosecha = cosechas.find((c) => claveCosecha(c.idCosecha, c.idSucursal) === seleccion);
+  const grupoActivo = grupos.find((g) =>
+    g.cosechas.some((c) => claveCosecha(c.idCosecha, c.idSucursal) === seleccion)
+  );
   const { data, loading, error } = useMovimientosCereal(
     cuentaSeleccionada?.idCuenta,
     cosecha?.idCosecha,
@@ -1177,20 +1183,41 @@ export const CosechasScreen: React.FC = () => {
           </View>
         </Card>
 
-        {cosechas.length > 1 && (
+        {/* Primero el cereal y, si tiene varias campañas, la campaña */}
+        {grupos.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {cosechas.map((c) => {
-              const clave = claveCosecha(c.idCosecha, c.idSucursal);
-              return (
-                <Chip
-                  key={clave}
-                  label={c.nombre || c.idCosecha}
-                  active={clave === seleccion}
-                  onPress={() => setSeleccion(clave)}
-                />
-              );
-            })}
+            {grupos.map((g) => (
+              <Chip
+                key={g.clave}
+                label={g.nombre}
+                active={g.clave === grupoActivo?.clave}
+                onPress={() => {
+                  if (g.clave === grupoActivo?.clave) return;
+                  setSeleccion(claveCosecha(g.cosechas[0].idCosecha, g.cosechas[0].idSucursal));
+                }}
+              />
+            ))}
           </ScrollView>
+        )}
+        {grupoActivo && grupoActivo.cosechas.length > 1 && (
+          <View style={styles.campaniasRow}>
+            <Text style={styles.campaniasLabel}>Campaña</Text>
+            <View style={styles.campaniasChips}>
+              {grupoActivo.cosechas.map((c) => {
+                const clave = claveCosecha(c.idCosecha, c.idSucursal);
+                const activa = clave === seleccion;
+                return (
+                  <Pressable
+                    key={clave}
+                    onPress={() => setSeleccion(clave)}
+                    style={[styles.campaniaChip, activa && styles.campaniaChipActiva]}
+                  >
+                    <Text style={[styles.campaniaChipText, activa && styles.campaniaChipTextActiva]}>{c.etiqueta}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
         )}
 
         {!sinCosechas && (
@@ -1443,6 +1470,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  campaniasRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: SPACING.sm, paddingHorizontal: SPACING.lg },
+  campaniasLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textGray, marginRight: SPACING.sm, marginTop: 6 },
+  campaniasChips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  campaniaChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+  },
+  campaniaChipActiva: { backgroundColor: COLORS.greenSoft, borderColor: COLORS.green },
+  campaniaChipText: { fontSize: 12, fontWeight: '600', color: COLORS.textBody },
+  campaniaChipTextActiva: { color: COLORS.green, fontWeight: '800' },
   chipsRow: { paddingHorizontal: SPACING.lg, gap: SPACING.sm, paddingTop: SPACING.md },
 
   monthTitle: {

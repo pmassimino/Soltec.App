@@ -39,6 +39,9 @@ export interface Cosecha {
   idSucursal?: string;
   nombre?: string;
   saldo: number;
+  /** Opcionales: si el backend los envía se usan para agrupar por cereal */
+  idCereal?: string;
+  cereal?: string;
 }
 
 export interface Pendientes {

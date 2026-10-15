@@ -5,7 +5,6 @@ import {
   Text,
   Alert,
   Platform,
-  Pressable,
   ScrollView,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -18,8 +17,10 @@ import { COLORS, SPACING, TYPO } from '../constants/theme';
 import { AccountCard, AccountCardSkeleton, CARD_GAP, CARD_WIDTH } from '../components/account/AccountCard';
 import { QuickActions } from '../components/common/QuickActions';
 import { PendingDocuments } from '../components/common/PendingDocuments';
-import { Card, EmptyState, HeaderTail, IconBadge, Section } from '../components/ui';
-import { formatFecha, formatKg } from '../utils/formatters';
+import { CosechasAgrupadas } from '../components/common/CosechasAgrupadas';
+import { agruparPorCereal } from '../utils/cosechas';
+import { EmptyState, HeaderTail, Section } from '../components/ui';
+import { formatFecha } from '../utils/formatters';
 import { useCuenta } from '../hooks/CuentaHook';
 import { ComprobanteService, PdfDescargado } from '../services/ComprobanteService';
 import { PdfViewerModal } from '../components/common/PdfViewerModal';
@@ -95,6 +96,7 @@ export const EstadoCuentaContent: React.FC = () => {
   };
 
   const cosechas = data?.cosechas ?? [];
+  const gruposCosechas = useMemo(() => agruparPorCereal(cosechas), [cosechas]);
 
   return (
     <>
@@ -157,36 +159,15 @@ export const EstadoCuentaContent: React.FC = () => {
         {/* Cosechas */}
         <Section
           title="Cosechas"
-          badge={cosechas.length || undefined}
+          badge={gruposCosechas.length || undefined}
           actionLabel={cosechas.length ? 'Ver todas' : undefined}
           onAction={() => navigation.navigate('cosechas')}
         >
           {cosechas.length > 0 ? (
-            <Card style={styles.listCard}>
-              {cosechas.map((cosecha, index) => (
-                <Pressable
-                  key={`${cosecha.idCosecha}-${cosecha.idSucursal ?? ''}-${index}`}
-                  onPress={() =>
-                    navigation.navigate('cosechas', { idCosecha: cosecha.idCosecha, idSucursal: cosecha.idSucursal })
-                  }
-                  style={({ pressed }) => [
-                    styles.listRow,
-                    index === cosechas.length - 1 && styles.listRowLast,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                >
-                  <IconBadge name="leaf-outline" color={COLORS.green} bg={COLORS.greenSoft} size={40} />
-                  <View style={styles.listRowText}>
-                    <Text style={TYPO.bodyStrong} numberOfLines={1}>{cosecha.nombre || '—'}</Text>
-                    <Text style={TYPO.caption}>Saldo en planta</Text>
-                  </View>
-                  <Text style={[styles.listRowValue, cosecha.saldo < 0 && { color: COLORS.red }]}>
-                    {formatKg(cosecha.saldo)}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} style={{ marginLeft: SPACING.sm }} />
-                </Pressable>
-              ))}
-            </Card>
+            <CosechasAgrupadas
+              grupos={gruposCosechas}
+              onSelect={(c) => navigation.navigate('cosechas', { idCosecha: c.idCosecha, idSucursal: c.idSucursal })}
+            />
           ) : (
             <EmptyState icon="leaf-outline" title="Sin cosechas" message="No hay cosechas registradas para esta cuenta." />
           )}
@@ -220,17 +201,6 @@ const styles = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#cbd5e1' },
   dotActive: { width: 18, backgroundColor: COLORS.navy },
 
-  listCard: { paddingHorizontal: SPACING.lg },
-  listRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  listRowLast: { borderBottomWidth: 0 },
-  listRowText: { flex: 1, marginLeft: SPACING.md, minWidth: 0 },
-  listRowValue: { ...TYPO.amount, fontSize: 16, color: COLORS.textDark, marginLeft: SPACING.sm },
 
   footer: {
     flexDirection: 'row',
