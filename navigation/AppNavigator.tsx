@@ -9,26 +9,29 @@ import { AuthService } from '../services/authService';
 import { COLORS } from '../constants/colors';
 import LoginScreen from '../screens/LoginScreen';
 import { MainLayout } from '../components/layout/MainLayout';
-import { BottomTabBar } from '../components/navigation/BottomTabBar';
+import { BottomTabBar, TabKey } from '../components/navigation/BottomTabBar';
 import { EstadoCuentaContent } from '../screens/EstadoCuenta';
 import { PerfilScreen } from '../screens/PerfilScreen';
 import { MovimientosScreen } from '../screens/MovimientosScreen';
-import { crearProximamente } from '../screens/ProximamenteScreen';
+import { FacturasScreen, RemitosScreen } from '../screens/DocumentosPendientesScreen';
+import { CosechasScreen } from '../screens/CosechasScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const CosechasScreen = crearProximamente('Cosechas', 'leaf-outline');
+// Las pantallas sin pestaña propia resaltan la pestaña desde la que se abren
+const tabActiva = (route: string): TabKey => (['remitos', 'facturas'].includes(route) ? 'resumen' : (route as TabKey));
 
 // MainLayout envuelve el Tab.Navigator: el combo de cuenta vive arriba de
 // todo, las pantallas (tabs) solo leen el contexto y se refrescan solas.
 const MainAppShell: React.FC = () => (
   <MainLayout>
     <Tab.Navigator
+      backBehavior="history"
       screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: COLORS.bg } }}
       tabBar={(props) => (
         <BottomTabBar
-          activeTab={props.state.routeNames[props.state.index] as any}
+          activeTab={tabActiva(props.state.routeNames[props.state.index])}
           onTabSelect={(tab) => props.navigation.navigate(tab)}
         />
       )}
@@ -37,6 +40,9 @@ const MainAppShell: React.FC = () => (
       <Tab.Screen name="movimientos" component={MovimientosScreen} />
       <Tab.Screen name="cosechas" component={CosechasScreen} />
       <Tab.Screen name="perfil" component={PerfilScreen} />
+      {/* Pantallas sin pestaña propia: se abren desde Inicio */}
+      <Tab.Screen name="remitos" component={RemitosScreen} />
+      <Tab.Screen name="facturas" component={FacturasScreen} />
     </Tab.Navigator>
   </MainLayout>
 );

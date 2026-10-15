@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,10 +15,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSujetoSeleccionado } from '../context/SujetoContext';
 import { useMovimientos } from '../hooks/MovimientosHook';
 import { Movimiento } from '../services/models';
-import { ComprobanteService, PdfDescargado, tipoComprobante } from '../services/ComprobanteService';
-import { PdfViewerModal } from '../components/common/PdfViewerModal';
+import { tipoComprobante } from '../services/ComprobanteService';
+import { useComprobantePdf } from '../hooks/ComprobantePdfHook';
 import { COLORS, RADIUS, SHADOW, SPACING, TYPO } from '../constants/theme';
-import { Card, EmptyState, HeaderTail, Skeleton } from '../components/ui';
+import { Card, Chip, EmptyState, HeaderTail, Skeleton } from '../components/ui';
 import { formatMoney } from '../utils/formatters';
 
 export type MovimientosParams = { idSubdiario?: string } | undefined;
@@ -40,13 +38,6 @@ const tituloMes = (d: Date) => {
   const s = d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
-
-/* ---------- Chip ---------- */
-const Chip: React.FC<{ label: string; active: boolean; onPress: () => void }> = ({ label, active, onPress }) => (
-  <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
-    <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-  </Pressable>
-);
 
 /* ---------- Fila de movimiento ---------- */
 interface MovimientoRowProps {
@@ -156,42 +147,7 @@ export const MovimientosScreen: React.FC = () => {
   const [idSubdiario, setIdSubdiario] = useState<string | undefined>(route.params?.idSubdiario);
   const [dias, setDias] = useState(60);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [descargandoId, setDescargandoId] = useState<string | null>(null);
-  const [pdfVisible, setPdfVisible] = useState<PdfDescargado | null>(null);
-  const comprobanteService = useMemo(() => new ComprobanteService(), []);
-
-  const mostrarError = (titulo: string, err: unknown, fallback: string) => {
-    const msg = err instanceof Error ? err.message : fallback;
-    if (Platform.OS === 'web') window.alert(msg);
-    else Alert.alert(titulo, msg);
-  };
-
-  const compartirPdf = async (pdf: PdfDescargado) => {
-    try {
-      await comprobanteService.compartirPdf(pdf);
-    } catch (err) {
-      mostrarError('Compartir', err, 'No se pudo compartir el comprobante.');
-    }
-  };
-
-  const descargarComprobante = async (mov: Movimiento) => {
-    if (!cuentaSeleccionada || descargandoId) return;
-    setDescargandoId(mov.idTransaccion);
-    try {
-      const pdf = await comprobanteService.descargarPdf(
-        mov.idTransaccion,
-        mov.tipo,
-        cuentaSeleccionada.idCuenta,
-        mov.numeroComprobante || `comprobante-${mov.idTransaccion}`
-      );
-      // En web ya se abrió en otra pestaña; en el teléfono se muestra en el visor
-      if (pdf) setPdfVisible(pdf);
-    } catch (err) {
-      mostrarError('Comprobante', err, 'No pudimos descargar el comprobante.');
-    } finally {
-      setDescargandoId(null);
-    }
-  };
+  const { descargandoId, descargar, visor } = useComprobantePdf(cuentaSeleccionada?.idCuenta);
 
   // Llega un subdiario desde "Ver movimientos" de la tarjeta
   useEffect(() => {
@@ -339,7 +295,7 @@ export const MovimientosScreen: React.FC = () => {
             <MovimientoRow
               mov={item}
               descargando={descargandoId === item.idTransaccion}
-              onDescargar={descargarComprobante}
+              onDescargar={(mov) => descargar(mov.idTransaccion, mov.tipo, mov.numeroComprobante)}
             />
             {index < section.data.length - 1 && <View style={styles.divider} />}
           </View>
@@ -354,7 +310,7 @@ export const MovimientosScreen: React.FC = () => {
           />
         }
       />
-      <PdfViewerModal pdf={pdfVisible} onClose={() => setPdfVisible(null)} onShare={compartirPdf} />
+      {visor}
     </>
   );
 };
@@ -392,17 +348,6 @@ const styles = StyleSheet.create({
   statValue: { ...TYPO.amount, fontSize: 14, color: COLORS.textDark, marginTop: 2 },
 
   chipsRow: { paddingHorizontal: SPACING.lg, gap: SPACING.sm, paddingTop: SPACING.md },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: RADIUS.pill,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  chipActive: { backgroundColor: COLORS.navy, borderColor: COLORS.navy },
-  chipText: { fontSize: 13, fontWeight: '600', color: COLORS.textBody },
-  chipTextActive: { color: COLORS.white },
 
   monthTitle: {
     ...TYPO.overline,

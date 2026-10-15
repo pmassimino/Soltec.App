@@ -5,6 +5,7 @@ import {
   Text,
   Alert,
   Platform,
+  Pressable,
   ScrollView,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -145,16 +146,34 @@ export const EstadoCuentaContent: React.FC = () => {
         </View>
 
         {/* Accesos rápidos */}
-        <QuickActions onResumen={descargarResumen} resumenLoading={descargandoResumen} />
+        <QuickActions
+          onCosechas={() => navigation.navigate('cosechas')}
+          onRemitos={() => navigation.navigate('remitos')}
+          onFacturas={() => navigation.navigate('facturas')}
+          onResumen={descargarResumen}
+          resumenLoading={descargandoResumen}
+        />
 
         {/* Cosechas */}
-        <Section title="Cosechas" badge={cosechas.length || undefined} actionLabel={cosechas.length ? 'Ver todas' : undefined}>
+        <Section
+          title="Cosechas"
+          badge={cosechas.length || undefined}
+          actionLabel={cosechas.length ? 'Ver todas' : undefined}
+          onAction={() => navigation.navigate('cosechas')}
+        >
           {cosechas.length > 0 ? (
             <Card style={styles.listCard}>
               {cosechas.map((cosecha, index) => (
-                <View
-                  key={cosecha.id || cosecha.nombre || index}
-                  style={[styles.listRow, index === cosechas.length - 1 && styles.listRowLast]}
+                <Pressable
+                  key={`${cosecha.idCosecha}-${cosecha.idSucursal ?? ''}-${index}`}
+                  onPress={() =>
+                    navigation.navigate('cosechas', { idCosecha: cosecha.idCosecha, idSucursal: cosecha.idSucursal })
+                  }
+                  style={({ pressed }) => [
+                    styles.listRow,
+                    index === cosechas.length - 1 && styles.listRowLast,
+                    pressed && { opacity: 0.7 },
+                  ]}
                 >
                   <IconBadge name="leaf-outline" color={COLORS.green} bg={COLORS.greenSoft} size={40} />
                   <View style={styles.listRowText}>
@@ -164,7 +183,8 @@ export const EstadoCuentaContent: React.FC = () => {
                   <Text style={[styles.listRowValue, cosecha.saldo < 0 && { color: COLORS.red }]}>
                     {formatKg(cosecha.saldo)}
                   </Text>
-                </View>
+                  <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} style={{ marginLeft: SPACING.sm }} />
+                </Pressable>
               ))}
             </Card>
           ) : (
@@ -176,6 +196,8 @@ export const EstadoCuentaContent: React.FC = () => {
         <PendingDocuments
           remitosPendientes={data?.remitos?.pendiente ?? 0}
           facturasPendientes={data?.facturas?.pendiente ?? 0}
+          onRemitos={() => navigation.navigate('remitos')}
+          onFacturas={() => navigation.navigate('facturas')}
         />
 
         <View style={styles.footer}>

@@ -27,15 +27,18 @@ export const QuickActionItem: React.FC<QuickActionProps> = ({ icon, label, color
 );
 
 interface QuickActionsProps {
+  onCosechas?: () => void;
+  onRemitos?: () => void;
+  onFacturas?: () => void;
   onResumen?: () => void;
   resumenLoading?: boolean;
 }
 
-export const QuickActions: React.FC<QuickActionsProps> = ({ onResumen, resumenLoading }) => (
+export const QuickActions: React.FC<QuickActionsProps> = ({ onCosechas, onRemitos, onFacturas, onResumen, resumenLoading }) => (
   <Card style={styles.row}>
-    <QuickActionItem icon="leaf-outline" label="Cosechas" color={COLORS.green} bg={COLORS.greenSoft} />
-    <QuickActionItem icon="cube-outline" label="Remitos" color={COLORS.amber} bg={COLORS.amberSoft} />
-    <QuickActionItem icon="document-text-outline" label="Facturas" color={COLORS.blue} bg={COLORS.blueSoft} />
+    <QuickActionItem icon="leaf-outline" label="Cosechas" color={COLORS.green} bg={COLORS.greenSoft} onPress={onCosechas} />
+    <QuickActionItem icon="cube-outline" label="Remitos" color={COLORS.amber} bg={COLORS.amberSoft} onPress={onRemitos} />
+    <QuickActionItem icon="document-text-outline" label="Facturas" color={COLORS.blue} bg={COLORS.blueSoft} onPress={onFacturas} />
     <QuickActionItem
       icon="download-outline"
       label="Resumen"

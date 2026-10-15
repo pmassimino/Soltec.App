@@ -171,6 +171,13 @@ export const Skeleton: React.FC<{ width?: number | `${number}%`; height?: number
   );
 };
 
+/* ---------- Chip de filtro ---------- */
+export const Chip: React.FC<{ label: string; active: boolean; onPress: () => void }> = ({ label, active, onPress }) => (
+  <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
+    <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+  </Pressable>
+);
+
 /* ---------- Pill de estado ---------- */
 export const StatusPill: React.FC<{ label: string; tone: "ok" | "warn" | "error" | "neutral" }> = ({ label, tone }) => {
   const p = {
@@ -223,6 +230,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
   },
   buttonText: { fontSize: 16, fontWeight: "700" },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  chipActive: { backgroundColor: COLORS.navy, borderColor: COLORS.navy },
+  chipText: { fontSize: 13, fontWeight: '600', color: COLORS.textBody },
+  chipTextActive: { color: COLORS.white },
   pill: {
     flexDirection: "row",
     alignItems: "center",

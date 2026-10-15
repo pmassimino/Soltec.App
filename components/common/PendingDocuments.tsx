@@ -10,13 +10,14 @@ interface PendingRowProps {
   bg: string;
   label: string;
   count: number;
+  onPress?: () => void;
 }
 
-const PendingRow: React.FC<PendingRowProps> = ({ icon, color, bg, label, count }) => {
+const PendingRow: React.FC<PendingRowProps> = ({ icon, color, bg, label, count, onPress }) => {
   const hayPendientes = count > 0;
 
   return (
-    <Pressable style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}>
+    <Pressable style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]} onPress={onPress}>
       <IconBadge name={icon} color={color} bg={bg} />
       <View style={styles.content}>
         <Text style={TYPO.bodyStrong}>{label}</Text>
@@ -33,20 +34,38 @@ const PendingRow: React.FC<PendingRowProps> = ({ icon, color, bg, label, count }
 interface PendingDocumentsProps {
   remitosPendientes?: number;
   facturasPendientes?: number;
+  onRemitos?: () => void;
+  onFacturas?: () => void;
 }
 
 export const PendingDocuments: React.FC<PendingDocumentsProps> = ({
   remitosPendientes = 0,
   facturasPendientes = 0,
+  onRemitos,
+  onFacturas,
 }) => {
   const total = remitosPendientes + facturasPendientes;
 
   return (
     <Section title="Documentos pendientes" badge={total > 0 ? total : undefined}>
       <Card style={styles.card}>
-        <PendingRow icon="cube-outline" color={COLORS.amber} bg={COLORS.amberSoft} label="Remitos" count={remitosPendientes} />
+        <PendingRow
+          icon="cube-outline"
+          color={COLORS.amber}
+          bg={COLORS.amberSoft}
+          label="Remitos"
+          count={remitosPendientes}
+          onPress={onRemitos}
+        />
         <View style={styles.divider} />
-        <PendingRow icon="document-text-outline" color={COLORS.blue} bg={COLORS.blueSoft} label="Facturas" count={facturasPendientes} />
+        <PendingRow
+          icon="document-text-outline"
+          color={COLORS.blue}
+          bg={COLORS.blueSoft}
+          label="Facturas"
+          count={facturasPendientes}
+          onPress={onFacturas}
+        />
       </Card>
     </Section>
   );
